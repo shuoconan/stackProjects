@@ -71,7 +71,11 @@ public class DatabaseManipulate {
 		}
 		return ja;
 	}
-	//给用户名返回用户名密码的加密值
+	/**
+	 * 
+	 * @param str RFID编号
+	 * @return 返回物品类别
+	 */
 	public static String queryRfid(String str){
 		String sqlString = "select * from goods_rfid where goods_rfid = '"+str+"'";
 		ResultSet rs;
@@ -103,6 +107,12 @@ public class DatabaseManipulate {
 		}
 		return resString;
 	}
+	/**
+	 * 
+	 * @param str 物品类别编码
+	 * @param strUsr 领用人
+	 * @return 返回当前的实际未领数量
+	 */
 	public static String queryStringrealNum(String str,String strUsr){
 		String sqlString = "select * from orders where goods_cata = '"+str+"' and goods_user = '"
 				+ strUsr+"' and order_status = '1'";
@@ -352,7 +362,12 @@ public class DatabaseManipulate {
 		}
 		return null;
 	}
-	
+	/**
+	 * 
+	 * @param mobile 当前的实际数量
+	 * @param time 领用人
+	 * @param nums 物资编号
+	 */
 	public static void setFoodsNums(String mobile,String time,String nums){
 	
 		String strUpdate = "update orders set real_nums = '"

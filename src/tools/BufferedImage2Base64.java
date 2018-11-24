@@ -23,7 +23,6 @@ public class BufferedImage2Base64 {
 	    } catch (IOException e) {
 	        e.printStackTrace();
 	    }
-	    System.out.println(imageString);
 	    return imageString;
 	    
 	}

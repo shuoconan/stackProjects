@@ -51,6 +51,7 @@ public class DetecPanel extends JLabel implements Runnable,subject{
 	private loginUserList ll = null;
 	private String user = null;
 	private String userId = null;
+	private VideoCapture vc = new VideoCapture(0);
 	public DetecPanel(loginUserList ll) {
 		// TODO Auto-generated constructor stub
 		this.ll = ll;	
@@ -74,7 +75,7 @@ public class DetecPanel extends JLabel implements Runnable,subject{
 		this.mImg = img;
 	}
 	public void setOpenCVCamera(){
-		VideoCapture vc = new VideoCapture(0);
+		this.vc.open(0);
 		int height = (int) vc.get(Videoio.CV_CAP_PROP_FRAME_HEIGHT);
 		int width = (int) vc.get(Videoio.CV_CAP_PROP_FRAME_HEIGHT);
 		this.setBounds(385, 195,height,width);
@@ -85,8 +86,28 @@ public class DetecPanel extends JLabel implements Runnable,subject{
 			Mat temp = new Mat();
 			while(this.flag <= 20){
 				vc.read(this.img);
-				if(this.flag == 10){
-//					
+				Imgproc.cvtColor(img, temp, Imgproc.COLOR_RGB2BGR555);
+				this.mImg = Mat2BufferedImage.matToBufferedImage(detecFace(img));
+				this.repaint();
+			}
+			this.vc.release();
+			
+		}
+		
+	}
+	public Mat detecFace(Mat img){
+		CascadeClassifier cascadeClassifier = new CascadeClassifier("img/lbpcascade_frontalface_improved.xml");
+		cascadeClassifier.detectMultiScale(img, mor);
+		JsonObject jObject = new JsonObject();
+		String host = "https://faceid.shumaidata.com";
+	    String path = "/face_idcard/verify";
+	    String method = "POST";
+	    String appcode = "8a4e82280b3844dabe76b037a1e44ce3";
+		Rect[] rects = mor.toArray();
+		if(rects != null && rects.length >= 1){
+			if(rects.length == 1){
+				if(this.flag == 10){	
+//					以下为联网识别，用该段代码要把146,147行注释掉。
 //					Map<String, String> querys = new HashMap<String, String>();
 //				    Map<String, String> bodys = new HashMap<String, String>();
 //					Map<String, String> headers = new HashMap<String, String>();
@@ -100,8 +121,7 @@ public class DetecPanel extends JLabel implements Runnable,subject{
 //						HttpResponse response = HttpsUtils.doPost(host, path, method, headers, querys, bodys);
 //						if(response.getStatusLine().getStatusCode() == HttpStatus.SC_OK){
 //					        HttpEntity entity = response.getEntity();
-//					       // 返回json格式：
-//					        System.out.println(entity.toString());
+//					       // 返回json格式
 //					        jObject = testHttPInterface.str2Json(EntityUtils.toString(entity));
 //					        String code = jObject.get("code").getAsString();
 //					        if(code.equals("-1")){
@@ -124,33 +144,17 @@ public class DetecPanel extends JLabel implements Runnable,subject{
 //					    } catch (Exception e) {
 //					      throw new RuntimeException(e);
 //					    }
-					
 					this.info = "SUCCESS";
 					notifyObserver();
 				}
-				this.mImg = Mat2BufferedImage.matToBufferedImage(detecFace(img));
-				Imgproc.cvtColor(img, temp, Imgproc.COLOR_RGB2BGR555);
-				this.flag++;
-				this.repaint();
+			}else {
+				this.info = "ERROR";
+    			notifyObserver();
 			}
-			
-		}
-		
-	}
-	public Mat detecFace(Mat img){
-		CascadeClassifier cascadeClassifier = new CascadeClassifier("img/lbpcascade_frontalface_improved.xml");
-		cascadeClassifier.detectMultiScale(img, mor);
-		JsonObject jObject = new JsonObject();
-		String host = "https://faceid.shumaidata.com";
-	    String path = "/face_idcard/verify";
-	    String method = "POST";
-	    String appcode = "8a4e82280b3844dabe76b037a1e44ce3";
-		Rect[] rects = mor.toArray();
-		if(rects != null && rects.length>=1){
 			for(Rect rect:rects){
 				Imgproc.rectangle(img, new Point(rect.x,rect.y), new Point(rect.x+rect.width,rect.y+rect.height),new Scalar(0,255,245),2);
 			}
-			
+			this.flag++;
 		}
 		return img;
 	}
@@ -184,8 +188,10 @@ public class DetecPanel extends JLabel implements Runnable,subject{
 		for(int i=0;i<observers.size();i++){
 			ObserverBonjava o=(ObserverBonjava)observers.get(i);
             o.update(this.info);
-            System.out.println(this.mImg);
             o.update2(this.mImg);
         }
 	}
+
+
+
 }

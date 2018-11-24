@@ -13,6 +13,8 @@ import java.util.Arrays;
 import java.util.Observable;
 import java.util.Observer;
 
+import javax.swing.JOptionPane;
+
 /**
  * Created by Administrator on 8/24/2017.
  */
@@ -927,7 +929,7 @@ public class RXObserver implements Observer{
      * @param tag The {@link RXInventoryTag} object contain tag information.
      */
     protected void onInventoryTag(RXInventoryTag tag) {
-
+    	JOptionPane.showMessageDialog(null, "hello");
     }
 
     /**
