@@ -34,6 +34,7 @@ import com.sun.org.apache.bcel.internal.generic.NEW;
 import javafx.beans.InvalidationListener;
 import javafx.beans.Observable;
 import jdk.nashorn.internal.ir.Flags;
+import redis.clients.jedis.Jedis;
 import tools.*;
 
 
@@ -52,11 +53,12 @@ public class DetecPanel extends JLabel implements Runnable,subject{
 	private String user = null;
 	private String userId = null;
 	private VideoCapture vc = new VideoCapture(0);
+	private Jedis jedis = new Jedis("127.0.0.1");
 	public DetecPanel(loginUserList ll) {
 		// TODO Auto-generated constructor stub
 		this.ll = ll;	
 		this.user = this.ll.getstrUsr();
-		this.userId = DatabaseManipulate.queryStringID(this.user);
+//		this.userId = DatabaseManipulate.queryStringID(this.user);
 	}
 	@Override
 	public void paint(Graphics g) {
@@ -107,6 +109,7 @@ public class DetecPanel extends JLabel implements Runnable,subject{
 		if(rects != null && rects.length >= 1){
 			if(rects.length == 1){
 				if(this.flag == 10){	
+					System.out.println(this.jedis.get(this.user));
 //					以下为联网识别，用该段代码要把146,147行注释掉。
 //					Map<String, String> querys = new HashMap<String, String>();
 //				    Map<String, String> bodys = new HashMap<String, String>();

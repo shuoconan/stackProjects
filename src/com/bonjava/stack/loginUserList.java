@@ -10,7 +10,9 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.imageio.ImageIO;
 import javax.swing.JLabel;
@@ -18,6 +20,19 @@ import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
+import org.apache.http.util.EntityUtils;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.sun.org.apache.bcel.internal.generic.NEW;
+
+import redis.clients.jedis.Jedis;
+import tools.HttpsUtils;
+import tools.testHttPInterface;
 
 public class loginUserList extends JPanel implements MouseListener,subject{
 	//用来存放和记录观察者
@@ -27,9 +42,10 @@ public class loginUserList extends JPanel implements MouseListener,subject{
 	private BufferedImage bgImage;
 	private File file;
 	private JLabel label = null;
-	private ArrayList<String> list;
+	private ArrayList<String> list = new ArrayList<String>();
 	private ArrayList<JLabel> listLabels = new ArrayList<JLabel>();
 	private String strUsr;
+	private Jedis jedis = new Jedis("127.0.0.1");
 	public loginUserList() {
 		// TODO Auto-generated constructor stub
 		
@@ -41,10 +57,42 @@ public class loginUserList extends JPanel implements MouseListener,subject{
 			e.printStackTrace();
 		}
 		setBgImage(this.bgImage);
-		list = DatabaseManipulate.searchUsers();
+		this.jedis.flushDB();
+		String host = "https://www.kpcodingoffice.com";
+	    String path = "/api/getstackusers";
+	    String method = "POST";
+	    Map<String, String> querys = new HashMap<String, String>();
+		Map<String, String> headers = new HashMap<String, String>();
+		Map<String, String> bodys = new HashMap<String, String>();
+		headers.put("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+		bodys.put("stacknum", "LCGDS0001");
+		try {
+			HttpResponse response = HttpsUtils.doPost(host, path, method, headers, querys, bodys);
+			if(response.getStatusLine().getStatusCode() == HttpStatus.SC_OK){
+				HttpEntity entity = response.getEntity();
+				JsonObject jObject = testHttPInterface.str2Json(EntityUtils.toString(entity));
+				String code = jObject.get("code").getAsString();
+				if(code.equals("0")){
+					JsonArray jArray = jObject.getAsJsonArray("data");
+					for(int i = 0;i < jArray.size();i++){
+						JsonObject joTmp = jArray.get(i).getAsJsonObject();
+						String nameTmp = joTmp.get("name").getAsString();
+						System.out.println(nameTmp);
+						this.jedis.set(joTmp.get("name").getAsString()+"id", joTmp.get("id").getAsString());
+						this.jedis.set(joTmp.get("name").getAsString()+"num", joTmp.get("user_num").getAsString());
+						list.add(nameTmp);
+					}
+				}
+			}
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
+		}
+//		list = DatabaseManipulate.searchUsers();
 		for(int i = 0;i<list.size();i++){
 			label = new JLabel(list.get(i));
 			this.listLabels.add(label);
+			System.out.println(this.jedis.get("list.get(i)"));
 		}
 		int j = 0;
 		int k = 723;

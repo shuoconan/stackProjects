@@ -3,7 +3,11 @@
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="lib" path="E:/opensource/mysql-connector-java-5.1.39/mysql-connector-java-5.1.39/mysql-connector-java-5.1.39-bin.jar"/>
 	<classpathentry kind="lib" path="D:/downloads/opencv/build/java/opencv-343.jar"/>
-	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/Java"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/jre8">
+		<attributes>
+			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="F:/java2017proj/stackProjects/libs"/>
+		</attributes>
+	</classpathentry>
 	<classpathentry kind="lib" path="E:/opensource/gson-2.8.5.jar"/>
 	<classpathentry kind="lib" path="E:/opensource/httpcomponents-client-4.5.6-bin/httpcomponents-client-4.5.6/lib/commons-codec-1.10.jar"/>
 	<classpathentry kind="lib" path="E:/opensource/httpcomponents-client-4.5.6-bin/httpcomponents-client-4.5.6/lib/commons-logging-1.2.jar"/>
@@ -17,5 +21,6 @@
 	<classpathentry kind="lib" path="E:/opensource/httpcomponents-client-4.5.6-bin/httpcomponents-client-4.5.6/lib/jna-platform-4.4.0.jar"/>
 	<classpathentry kind="lib" path="E:/opensource/commons-lang3-3.8.1/commons-lang3-3.8.1.jar"/>
 	<classpathentry kind="lib" path="E:/opensource/mfz-rxtx-2.2-20081207-win-x64/mfz-rxtx-2.2-20081207-win-x64/RXTXcomm.jar"/>
+	<classpathentry kind="lib" path="D:/downloads/jedis-2.9.0.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

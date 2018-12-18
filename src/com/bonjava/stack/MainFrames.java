@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
 import java.util.Set;
@@ -25,6 +26,10 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.border.Border;
 
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
+import org.apache.http.util.EntityUtils;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.imgproc.Imgproc;
@@ -46,6 +51,9 @@ import gnu.io.SerialPort;
 import gnu.io.SerialPortEvent;
 import gnu.io.SerialPortEventListener;
 import jdk.nashorn.internal.ir.Flags;
+import redis.clients.jedis.Jedis;
+import tools.HttpsUtils;
+import tools.testHttPInterface;
 
 
 public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
@@ -70,20 +78,12 @@ public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
 	private int m = 0;
 	private Thread thread2 = null;//RFID工作线程
 	private rfidDuty fd = new rfidDuty();
+	private Jedis jedis = new Jedis("127.0.01");
 	private Observer mObserver = new RXObserver() {
 		@Override
 		protected void onInventoryTag(RXInventoryTag tag) {
 			String tagTempString = tag.strEPC.replaceAll(" ", "");
-			if(true){
-				if(hSet.contains(tagTempString)){
-					return;
-				}else {
-					hSet.add(tag.strEPC.replaceAll(" ", ""));
-					dorfidData(tag.strEPC.replaceAll(" ", ""));
-					
-				}
-				System.out.println(hSet.toString());
-			}
+			jedis.sadd("rfid_temp", tagTempString);
 		}
 	};
 	private RXTXListener mListener = new RXTXListener() {
@@ -111,7 +111,7 @@ public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
 
 	public MainFrames() {
 		// TODO Auto-generated constructor stub
-		this.mReaderHelper = (RFIDReaderHelper) mConnector.connectCom("COM4", 115200);
+		this.mReaderHelper = (RFIDReaderHelper) mConnector.connectCom("COM6", 115200);
 		//设置天线
 		this.mReaderHelper.setWorkAntenna((byte)0xFF, (byte)0x00);
 		this.mReaderHelper.setWorkAntenna((byte)0xFF, (byte)0x01);
@@ -150,10 +150,11 @@ public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
 			
 		}
 		if(e.getComponent().equals(this.useEmergency)){
-			int op = JOptionPane.showConfirmDialog(null, "出库成功！","成功",JOptionPane.YES_NO_OPTION);
-			if(op == JOptionPane.YES_OPTION){
+			System.out.println(jedis.smembers("rfid_temp"));
+//			int op = JOptionPane.showConfirmDialog(null, "出库成功！","成功",JOptionPane.YES_NO_OPTION);
+//			if(op == JOptionPane.YES_OPTION){
 				try {
-					serialPort = SerialTool.openPort("COM9", 9600);
+					serialPort = SerialTool.openPort("COM5", 9600);
 					SerialTool.addListener(serialPort, new SerialListener());
 					//这边加锁复位的命令
 					byte[] byteReset = {(byte)0xAA,(byte)0x5A,(byte)0x00,(byte)0xFE,(byte)0x00,(byte)0xFF};
@@ -166,8 +167,8 @@ public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
 				}
 				this.jp.removeAll();
 				this.jp.add(this.lf,new Integer(100));
-				
-			}
+//				
+//			}
 		}
 	}
 	@Override
@@ -280,30 +281,56 @@ public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
 			this.jp.add(cof,new Integer(100));
 			this.jp.add(ii,new Integer(101));
 			this.jp.add(nameUser,new Integer(102));
-			ja = DatabaseManipulate.queryOrder(this.strUser);
+//			ja = DatabaseManipulate.queryOrder(this.strUser);
+			String host = "https://www.kpcodingoffice.com";
+		    String path = "/api/getorderdata";
+		    String method = "POST";
+		    Map<String, String> querys = new HashMap<String, String>();
+			Map<String, String> headers = new HashMap<String, String>();
+			Map<String, String> bodys = new HashMap<String, String>();
+			headers.put("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+			System.out.println("123"+jedis.get(this.strUser+"num"));
+			bodys.put("usernum", jedis.get(this.strUser+"num"));
+			try {
+				HttpResponse response = HttpsUtils.doPost(host, path, method, headers, querys, bodys);
+				if(response.getStatusLine().getStatusCode() == HttpStatus.SC_OK){
+					HttpEntity entity = response.getEntity();
+					JsonObject jObject = testHttPInterface.str2Json(EntityUtils.toString(entity));
+					System.out.println(jObject.toString());
+					String code = jObject.get("code").getAsString();
+					if(code.equals("0")){
+						JsonArray jArray = jObject.getAsJsonArray("datas");
+						JsonObject jo = jArray.get(0).getAsJsonObject();
+						ja = jo.get("datas").getAsJsonArray();
+					}
+				}
+			} catch (Exception e) {
+				// TODO: handle exception
+				e.printStackTrace();
+			}
 			if(ja!=null){
 				byte[] bytes = {(byte)0xAA,(byte)0x5A,(byte)0x00,(byte)0xFD,(byte)0x00,(byte)0x00};
 				for(int i = 0;i<ja.size();i++){
 					joTemp = (JsonObject)ja.get(i);
-					JLabel jLabel = new JLabel(joTemp.get("goods_cata").getAsString());
+					JLabel jLabel = new JLabel(joTemp.get("cata").getAsString());
 					this.jLabels.add(jLabel);
-					jLabel = new JLabel(joTemp.get("goods_name").getAsString(),JLabel.CENTER);
+					jLabel = new JLabel(joTemp.get("name").getAsString(),JLabel.CENTER);
 					jLabel.setBounds(367,224+55*i,245,55);	
 					jLabel.setFont(new Font("微软雅黑",Font.PLAIN,30));
 					this.jp.add(jLabel,new Integer(102+i*10+1));
 					this.jLabels.add(jLabel);
-					jLabel = new JLabel(joTemp.get("goods_kinds").getAsString(),JLabel.CENTER);
+					jLabel = new JLabel(joTemp.get("cata").getAsString(),JLabel.CENTER);
 					jLabel.setBounds(613,224+55*i,199,55);	
 					jLabel.setFont(new Font("微软雅黑",Font.PLAIN,30));
 					this.jp.add(jLabel,new Integer(102+i*10+2));
 					this.jLabels.add(jLabel);
-					jLabel = new JLabel(joTemp.get("goods_nums").getAsString(),JLabel.CENTER);
+					jLabel = new JLabel(joTemp.get("num").getAsString(),JLabel.CENTER);
 					jLabel.setBounds(812,224+55*i,175,55);	
 					jLabel.setFont(new Font("微软雅黑",Font.PLAIN,30));
 					this.jp.add(jLabel,new Integer(102+i*10+3));
 					this.jLabels.add(jLabel);
-					jLabel = new JLabel(joTemp.get("goods_location").getAsString()+"号柜",JLabel.CENTER);
-					switch (Integer.parseInt(joTemp.get("goods_location").getAsString())) {
+					jLabel = new JLabel(joTemp.get("location").getAsString()+"号柜",JLabel.CENTER);
+					switch (Integer.parseInt(joTemp.get("location").getAsString())) {
 					case 1:
 						bytes[4] = (byte) (bytes[4]|(byte)0x80);
 						break;
@@ -341,7 +368,7 @@ public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
 					
 				}
 				try {
-					serialPort  =SerialTool.openPort("COM9", 9600);
+					serialPort  =SerialTool.openPort("COM5", 9600);
 					SerialTool.addListener(serialPort, new SerialListener());
 					SerialTool.sendToPort(serialPort, bytes);
 					byte[] bytess = {(byte)0xAA,(byte)0x5A,(byte)0x00,(byte)0xF1,(byte)0x00,(byte)0xFF};
@@ -376,32 +403,32 @@ public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
 		}
 		
 	}
-	public void dorfidData(String rfidNum){
-		String strCata = DatabaseManipulate.queryRfid(rfidNum);
-		System.out.println(strCata);
-		String realNum = DatabaseManipulate.queryStringrealNum(strCata, this.strUser );
-		System.out.println(realNum);
-		System.out.println(this.jLabels.toString());
-		if(this.jLabels.size()>0){
-			for(int i = 0;i<this.jLabels.size();i = i + 5 ){
-				if(jLabels.get(i).getText().equals(strCata)){
-					System.out.println("检测到");
-					realNum = String.valueOf(Integer.parseInt(realNum)-1);
-					DatabaseManipulate.setFoodsNums(realNum, this.strUser, strCata);
-					if(realNum.equals("0")){
-						this.jLabels.get(i+3).setText("已领足");
-					}else if(Integer.parseInt(realNum)>0){
-						this.jLabels.get(i+3).setText(realNum+"件未领");
-					}else{
-						this.jLabels.get(i+3).setText("超额领取");
-					}
-				}else{
-					this.extraArrayList.add(strCata);
-				}
-			}
-		}
-		
-	}
+//	public void dorfidData(String rfidNum){
+////		String strCata = DatabaseManipulate.queryRfid(rfidNum);
+//		System.out.println(strCata);
+//		String realNum = DatabaseManipulate.queryStringrealNum(strCata, this.strUser );
+//		System.out.println(realNum);
+//		System.out.println(this.jLabels.toString());
+//		if(this.jLabels.size()>0){
+//			for(int i = 0;i<this.jLabels.size();i = i + 5 ){
+//				if(jLabels.get(i).getText().equals(strCata)){
+//					System.out.println("检测到");
+//					realNum = String.valueOf(Integer.parseInt(realNum)-1);
+//					DatabaseManipulate.setFoodsNums(realNum, this.strUser, strCata);
+//					if(realNum.equals("0")){
+//						this.jLabels.get(i+3).setText("已领足");
+//					}else if(Integer.parseInt(realNum)>0){
+//						this.jLabels.get(i+3).setText(realNum+"件未领");
+//					}else{
+//						this.jLabels.get(i+3).setText("超额领取");
+//					}
+//				}else{
+//					this.extraArrayList.add(strCata);
+//				}
+//			}
+//		}
+//		
+//	}
 	private class SerialListener implements SerialPortEventListener {
 
 		/**
