@@ -7,6 +7,8 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 import java.nio.Buffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,6 +20,13 @@ import java.util.Observable;
 import java.util.Observer;
 import java.util.Set;
 
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.DataLine;
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.SourceDataLine;
+import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.BorderFactory;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -78,7 +87,7 @@ public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
 	private int m = 0;
 	private Thread thread2 = null;//RFID工作线程
 	private rfidDuty fd = new rfidDuty();
-	private Jedis jedis = new Jedis("127.0.01");
+	private Jedis jedis = new Jedis("127.0.0.1");
 	private Observer mObserver = new RXObserver() {
 		@Override
 		protected void onInventoryTag(RXInventoryTag tag) {
@@ -200,6 +209,40 @@ public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
 			this.hSet.clear();
 			Thread thread = new Thread(this);
 			thread.start();
+			new Thread(new Runnable() {
+				
+				@Override
+				public void run() {
+					// TODO Auto-generated method stub
+					
+					AudioInputStream as;
+					try {
+						as = AudioSystem.getAudioInputStream(new File("img/1.wav"));//音频文件在项目根目录的img文件夹下
+						AudioFormat format = as.getFormat();
+						SourceDataLine sdl = null;
+						DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
+						sdl = (SourceDataLine) AudioSystem.getLine(info);
+						sdl.open(format);
+						sdl.start();
+						int nBytesRead = 0;
+						byte[] abData = new byte[512];
+						while (nBytesRead != -1) {
+							nBytesRead = as.read(abData, 0, abData.length);
+							if (nBytesRead >= 0)
+								sdl.write(abData, 0, nBytesRead);
+						}
+					    //关闭SourceDataLine
+						sdl.drain();
+						sdl.close();
+						}catch (UnsupportedAudioFileException | IOException | LineUnavailableException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+						
+					    
+					
+				}
+			}).start();
 			this.fd.startMe();
 			this.thread2 = new Thread(fd);
 			this.thread2.start();
@@ -262,6 +305,8 @@ public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
 	@Override
 	public void run() {
 		// TODO Auto-generated method stub
+		
+		
 		try {
 			int j = 0;
 			JsonArray ja = null;
@@ -291,6 +336,7 @@ public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
 			headers.put("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
 			System.out.println("123"+jedis.get(this.strUser+"num"));
 			bodys.put("usernum", jedis.get(this.strUser+"num"));
+			bodys.put("stacknum", "LCGDS0001");
 			try {
 				HttpResponse response = HttpsUtils.doPost(host, path, method, headers, querys, bodys);
 				if(response.getStatusLine().getStatusCode() == HttpStatus.SC_OK){
