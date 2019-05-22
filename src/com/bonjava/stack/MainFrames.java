@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.Buffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -28,12 +29,18 @@ import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.BorderFactory;
+import javax.swing.DefaultListModel;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JLayeredPane;
+import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.ListModel;
 import javax.swing.border.Border;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -54,6 +61,7 @@ import com.rfid.ReaderConnector;
 import com.rfid.rxobserver.RXObserver;
 import com.rfid.rxobserver.bean.RXInventoryTag;
 import com.sun.org.apache.bcel.internal.generic.NEW;
+import com.sun.xml.internal.bind.v2.runtime.Location;
 import com.util.StringTool;
 
 import gnu.io.SerialPort;
@@ -80,6 +88,7 @@ public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
 	private String strUser = null;
 	private JLabel useEmergency = null;
 	private JLabel dealOrder = null;
+	private JLabel checkOut = null;
 	private SerialPort serialPort = null;
 	private Set<String> rfidName = new HashSet<String>();
 	private ArrayList<JLabel> jLabels = new ArrayList<JLabel>();
@@ -88,6 +97,13 @@ public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
 	private Thread thread2 = null;//RFID工作线程
 	private rfidDuty fd = new rfidDuty();
 	private Jedis jedis = new Jedis("127.0.0.1");
+	private DefaultListModel<String>  toLModel = new DefaultListModel();
+	private DefaultListModel<String>  doneLModel = new DefaultListModel();
+	private JList<String> todoList = new JList<>(toLModel);
+	private JList<String> doneList = new JList<>(doneLModel);
+	private JScrollPane todoJScrollPane = new JScrollPane(todoList);
+	private JScrollPane doneJScrollPane = new JScrollPane(doneList);
+	private ArrayList<String> selectedList = new ArrayList<String>();
 	private Observer mObserver = new RXObserver() {
 		@Override
 		protected void onInventoryTag(RXInventoryTag tag) {
@@ -120,7 +136,7 @@ public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
 
 	public MainFrames() {
 		// TODO Auto-generated constructor stub
-		this.mReaderHelper = (RFIDReaderHelper) mConnector.connectCom("COM6", 115200);
+		this.mReaderHelper = (RFIDReaderHelper) mConnector.connectCom("COM5", 115200);
 		//设置天线
 		this.mReaderHelper.setWorkAntenna((byte)0xFF, (byte)0x00);
 		this.mReaderHelper.setWorkAntenna((byte)0xFF, (byte)0x01);
@@ -155,15 +171,74 @@ public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
 			this.jp.add(this.lf3,new Integer(100));
 			this.jp.repaint();		
 		}
-		if(e.getComponent().equals(this.dealOrder)){
-			
+		if(e.getComponent().equals(this.checkOut)){
+			OutStack ot = new OutStack();
+			ot.setVisible(true);
 		}
+		//领用物资按钮
+		if(e.getComponent().equals(this.dealOrder)){
+			byte[] bytes = {(byte)0xAA,(byte)0x5A,(byte)0x00,(byte)0xFD,(byte)0x00,(byte)0x00};
+			System.out.println(this.selectedList.toString());
+			this.selectedList.removeAll(Collections.singleton(null));
+			for(int i = 0;i<this.selectedList.size();i=i+2){
+				System.out.println(this.selectedList.toString());
+				String location = this.jedis.get(this.selectedList.get(i)+"_num");
+				System.out.println(this.selectedList.get(i)+"_num");
+				System.out.println(location);
+					   switch (Integer.parseInt(location)) {
+					   case 1:
+					   	   bytes[4] = (byte) (bytes[4]|(byte)0x80);
+						   break;
+					   case 2:
+						   bytes[4] = (byte) (bytes[4]|(byte)0x40);
+						   break;
+					   case 3:
+						   bytes[4] = (byte) (bytes[4]|(byte)0x20);
+						   break;
+					   case 4:
+						   bytes[4] = (byte) (bytes[4]|(byte)0x10);
+						   break;
+					   case 5:
+						   bytes[4] = (byte) (bytes[4]|(byte)0x08);
+						   break;
+					   case 6:
+						   bytes[4] = (byte) (bytes[4]|(byte)0x04);
+						   break;
+					   case 7:
+						   bytes[4] = (byte) (bytes[4]|(byte)0x02);
+						   break;
+					   case 8:
+						   bytes[4] = (byte) (bytes[4]|(byte)0x01);
+						   break;
+					   case 9:
+						   bytes[5] = (byte) (bytes[5]|(byte)0x80);
+						   break;
+					   default:
+						   break;
+					   }	
+					
+			}
+			try {
+				serialPort  =SerialTool.openPort("COM3", 9600);
+				SerialTool.addListener(serialPort, new SerialListener());
+				SerialTool.sendToPort(serialPort, bytes);
+				byte[] bytess = {(byte)0xAA,(byte)0x5A,(byte)0x00,(byte)0xF1,(byte)0x00,(byte)0xFF};
+				SerialTool.sendToPort(serialPort, bytess);
+				SerialTool.closePort(serialPort);
+			} catch (SerialPortParameterFailure e2) {
+				// TODO Auto-generated catch block
+				e2.printStackTrace();
+			}
+		}
+		//确认出库按钮
 		if(e.getComponent().equals(this.useEmergency)){
-			System.out.println(jedis.smembers("rfid_temp"));
-//			int op = JOptionPane.showConfirmDialog(null, "出库成功！","成功",JOptionPane.YES_NO_OPTION);
-//			if(op == JOptionPane.YES_OPTION){
+			int op = JOptionPane.showConfirmDialog(null, "物品已记录，出库成功！","成功",JOptionPane.YES_NO_OPTION);
+			if(op == JOptionPane.YES_OPTION){
 				try {
-					serialPort = SerialTool.openPort("COM5", 9600);
+					this.selectedList.clear();
+					this.doneLModel.clear();
+					this.toLModel.clear();
+					serialPort = SerialTool.openPort("COM3", 9600);
 					SerialTool.addListener(serialPort, new SerialListener());
 					//这边加锁复位的命令
 					byte[] byteReset = {(byte)0xAA,(byte)0x5A,(byte)0x00,(byte)0xFE,(byte)0x00,(byte)0xFF};
@@ -176,8 +251,8 @@ public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
 				}
 				this.jp.removeAll();
 				this.jp.add(this.lf,new Integer(100));
-//				
-//			}
+				
+			}
 		}
 	}
 	@Override
@@ -200,6 +275,7 @@ public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
 		// TODO Auto-generated method stub
 		
 	}
+	//观察者模式更新函数
 	@Override
 	public void update(String info) {
 		// TODO Auto-generated method stub
@@ -302,6 +378,7 @@ public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
 		// TODO Auto-generated method stub
 		this.img = bgMImage;
 	}
+	//获取订单信息
 	@Override
 	public void run() {
 		// TODO Auto-generated method stub
@@ -327,126 +404,108 @@ public class MainFrames implements MouseListener,ObserverBonjava,Runnable{
 			this.jp.add(ii,new Integer(101));
 			this.jp.add(nameUser,new Integer(102));
 //			ja = DatabaseManipulate.queryOrder(this.strUser);
-			String host = "https://www.kpcodingoffice.com";
-		    String path = "/api/getorderdata";
+			String host = "http://118.25.40.2";
+		    String path = "/api/returngoodscata/";
 		    String method = "POST";
 		    Map<String, String> querys = new HashMap<String, String>();
 			Map<String, String> headers = new HashMap<String, String>();
 			Map<String, String> bodys = new HashMap<String, String>();
 			headers.put("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-			System.out.println("123"+jedis.get(this.strUser+"num"));
-			bodys.put("usernum", jedis.get(this.strUser+"num"));
-			bodys.put("stacknum", "LCGDS0001");
+			bodys.put("stack_users", this.strUser);
+			System.out.println(this.strUser);
+			bodys.put("stack_name", "黎城供电所应急库");
 			try {
 				HttpResponse response = HttpsUtils.doPost(host, path, method, headers, querys, bodys);
+				String strings = EntityUtils.toString(response.getEntity());
 				if(response.getStatusLine().getStatusCode() == HttpStatus.SC_OK){
-					HttpEntity entity = response.getEntity();
-					JsonObject jObject = testHttPInterface.str2Json(EntityUtils.toString(entity));
+					JsonObject jObject = testHttPInterface.str2Json(strings);
 					System.out.println(jObject.toString());
 					String code = jObject.get("code").getAsString();
 					if(code.equals("0")){
-						JsonArray jArray = jObject.getAsJsonArray("datas");
-						JsonObject jo = jArray.get(0).getAsJsonObject();
-						ja = jo.get("datas").getAsJsonArray();
+						ja = jObject.getAsJsonArray("data");
+						
 					}
 				}
 			} catch (Exception e) {
 				// TODO: handle exception
 				e.printStackTrace();
 			}
+			this.todoList.setFont(new Font("微软雅黑",Font.PLAIN,30));
+			this.todoJScrollPane.setBounds(340,239,434,733);
+			this.doneList.setFont(new Font("微软雅黑",Font.PLAIN,30));
+			this.doneJScrollPane.setBounds(789, 239, 434, 733);
 			if(ja!=null){
-				byte[] bytes = {(byte)0xAA,(byte)0x5A,(byte)0x00,(byte)0xFD,(byte)0x00,(byte)0x00};
+				this.toLModel.clear();
+				this.doneLModel.clear();
 				for(int i = 0;i<ja.size();i++){
 					joTemp = (JsonObject)ja.get(i);
-					JLabel jLabel = new JLabel(joTemp.get("cata").getAsString());
-					this.jLabels.add(jLabel);
-					jLabel = new JLabel(joTemp.get("name").getAsString(),JLabel.CENTER);
-					jLabel.setBounds(367,224+55*i,245,55);	
-					jLabel.setFont(new Font("微软雅黑",Font.PLAIN,30));
-					this.jp.add(jLabel,new Integer(102+i*10+1));
-					this.jLabels.add(jLabel);
-					jLabel = new JLabel(joTemp.get("cata").getAsString(),JLabel.CENTER);
-					jLabel.setBounds(613,224+55*i,199,55);	
-					jLabel.setFont(new Font("微软雅黑",Font.PLAIN,30));
-					this.jp.add(jLabel,new Integer(102+i*10+2));
-					this.jLabels.add(jLabel);
-					jLabel = new JLabel(joTemp.get("num").getAsString(),JLabel.CENTER);
-					jLabel.setBounds(812,224+55*i,175,55);	
-					jLabel.setFont(new Font("微软雅黑",Font.PLAIN,30));
-					this.jp.add(jLabel,new Integer(102+i*10+3));
-					this.jLabels.add(jLabel);
-					jLabel = new JLabel(joTemp.get("location").getAsString()+"号柜",JLabel.CENTER);
-					switch (Integer.parseInt(joTemp.get("location").getAsString())) {
-					case 1:
-						bytes[4] = (byte) (bytes[4]|(byte)0x80);
-						break;
-					case 2:
-						bytes[4] = (byte) (bytes[4]|(byte)0x40);
-						break;
-					case 3:
-						bytes[4] = (byte) (bytes[4]|(byte)0x20);
-						break;
-					case 4:
-						bytes[4] = (byte) (bytes[4]|(byte)0x10);
-						break;
-					case 5:
-						bytes[4] = (byte) (bytes[4]|(byte)0x08);
-						break;
-					case 6:
-						bytes[4] = (byte) (bytes[4]|(byte)0x04);
-						break;
-					case 7:
-						bytes[4] = (byte) (bytes[4]|(byte)0x02);
-						break;
-					case 8:
-						bytes[4] = (byte) (bytes[4]|(byte)0x01);
-						break;
-					case 9:
-						bytes[5] = (byte) (bytes[5]|(byte)0x80);
-						break;
-					default:
-						break;
-					}
-					jLabel.setBounds(997,224+55*i,221,55);		
-					jLabel.setFont(new Font("微软雅黑",Font.PLAIN,30));
-					this.jp.add(jLabel,new Integer(102+i*10+4));
-					this.jLabels.add(jLabel);
+					System.out.println(joTemp.get("name").getAsString());
+					this.toLModel.addElement(joTemp.get("name").getAsString());
+					this.jedis.set(joTemp.get("name").getAsString()+"_id",joTemp.get("remains").getAsString());
+					JsonArray ja2 = joTemp.get("where").getAsJsonArray();
+					String jot = ((JsonObject)ja2.get(0)).get("where_is").getAsString();
+					this.jedis.set(joTemp.get("name").getAsString()+"_num",jot);			
+				}
+                this.todoList.addListSelectionListener(new ListSelectionListener() {
 					
-				}
-				try {
-					serialPort  =SerialTool.openPort("COM5", 9600);
-					SerialTool.addListener(serialPort, new SerialListener());
-					SerialTool.sendToPort(serialPort, bytes);
-					byte[] bytess = {(byte)0xAA,(byte)0x5A,(byte)0x00,(byte)0xF1,(byte)0x00,(byte)0xFF};
-					SerialTool.sendToPort(serialPort, bytess);
-					SerialTool.closePort(serialPort);
-				} catch (SerialPortParameterFailure e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
+					@Override
+					public void valueChanged(ListSelectionEvent e) {
+						// TODO Auto-generated method stub
+						do_list_valueChanged(e);
+					}
+				});
+                this.doneList.addListSelectionListener(new ListSelectionListener() {
+					
+					@Override
+					public void valueChanged(ListSelectionEvent e) {
+						// TODO Auto-generated method stub
+						do_list_valueChanged2(e);
+					}
+				});
 						
 				this.dealOrder = new JLabel("领用订单物资",JLabel.CENTER);
-				this.dealOrder.setBounds(732, 925, 217, 56);
+				this.dealOrder.setBounds(41, 500, 250, 56);
 				this.dealOrder.setFont(new Font("微软雅黑",Font.PLAIN,30));
-				this.dealOrder.setForeground(Color.white);
-				this.dealOrder.setBorder(BorderFactory.createLineBorder(Color.white));
-				this.dealOrder.addMouseListener(this);
-				this.jp.add(this.dealOrder,new Integer(200));
+			    this.dealOrder.setForeground(Color.white);
+			    this.dealOrder.setBorder(BorderFactory.createLineBorder(Color.white));
+      			this.dealOrder.addMouseListener(this);
+      			this.jp.add(this.dealOrder,new Integer(199));
+				this.jp.add(this.todoJScrollPane,new Integer(200));
+				this.jp.add(this.doneJScrollPane,new Integer(300));
 				
 			}
-			this.useEmergency = new JLabel("确认领用物资",JLabel.CENTER);
-			this.useEmergency.setBounds(998, 925, 217, 56);
+//			this.checkOut = new JLabel("查看出库单",JLabel.CENTER);
+//			this.checkOut.setBounds(41, 570, 250, 56);
+//			this.checkOut.setFont(new Font("微软雅黑",Font.PLAIN,30));
+//			this.checkOut.setForeground(Color.white);
+//			this.checkOut.setBorder(BorderFactory.createLineBorder(Color.white));
+//			this.checkOut.addMouseListener(this);
+//			this.jp.add(this.checkOut,new Integer(301)); 
+			//关门关灯
+			this.useEmergency = new JLabel("确认出库",JLabel.CENTER);
+			this.useEmergency.setBounds(41, 570, 250, 56);
 			this.useEmergency.setFont(new Font("微软雅黑",Font.PLAIN,30));
 			this.useEmergency.setForeground(Color.white);
 			this.useEmergency.setBorder(BorderFactory.createLineBorder(Color.white));
 			this.useEmergency.addMouseListener(this);
-			this.jp.add(this.useEmergency,new Integer(300));
+			this.jp.add(this.useEmergency,new Integer(301));
 			
 			
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
+	}
+	public void do_list_valueChanged(ListSelectionEvent e){
+		this.selectedList.add(this.todoList.getSelectedValue());
+		this.doneLModel.addElement(this.todoList.getSelectedValue());
+		this.toLModel.removeElement(this.todoList.getSelectedValue());
+	}
+	public void do_list_valueChanged2(ListSelectionEvent e){
+		this.toLModel.addElement(this.doneList.getSelectedValue());
+		this.doneLModel.removeElement(this.doneList.getSelectedValue());
+		
 		
 	}
 //	public void dorfidData(String rfidNum){

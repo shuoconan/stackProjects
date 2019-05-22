@@ -58,28 +58,30 @@ public class loginUserList extends JPanel implements MouseListener,subject{
 		}
 		setBgImage(this.bgImage);
 		this.jedis.flushDB();
-		String host = "https://www.kpcodingoffice.com";
-	    String path = "/api/getstackusers";
+		String host = "http://118.25.40.2";
+	    String path = "/api/getusercheck/";
 	    String method = "POST";
+	   
 	    Map<String, String> querys = new HashMap<String, String>();
 		Map<String, String> headers = new HashMap<String, String>();
 		Map<String, String> bodys = new HashMap<String, String>();
 		headers.put("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-		bodys.put("stacknum", "LCGDS0001");
+		bodys.put("stack_name", "黎城供电所应急库");
 		try {
 			HttpResponse response = HttpsUtils.doPost(host, path, method, headers, querys, bodys);
+			 String string = EntityUtils.toString(response.getEntity());
 			if(response.getStatusLine().getStatusCode() == HttpStatus.SC_OK){
-				HttpEntity entity = response.getEntity();
-				JsonObject jObject = testHttPInterface.str2Json(EntityUtils.toString(entity));
+				JsonObject jObject = testHttPInterface.str2Json(string);
 				String code = jObject.get("code").getAsString();
 				if(code.equals("0")){
 					JsonArray jArray = jObject.getAsJsonArray("data");
+					System.out.println(jArray.toString());
 					for(int i = 0;i < jArray.size();i++){
 						JsonObject joTmp = jArray.get(i).getAsJsonObject();
 						String nameTmp = joTmp.get("name").getAsString();
 						System.out.println(nameTmp);
-						this.jedis.set(joTmp.get("name").getAsString()+"id", joTmp.get("id").getAsString());
-						this.jedis.set(joTmp.get("name").getAsString()+"num", joTmp.get("user_num").getAsString());
+						this.jedis.set(joTmp.get("name").getAsString()+"user_id", joTmp.get("user_id").getAsString());
+						this.jedis.set(joTmp.get("name").getAsString()+"id_num", joTmp.get("id").getAsString());
 						list.add(nameTmp);
 					}
 				}

@@ -148,6 +148,7 @@ public class DetecPanel extends JLabel implements Runnable,subject{
 //					      throw new RuntimeException(e);
 //					    }
 					this.info = "SUCCESS";
+					this.vc.release();
 					notifyObserver();
 				}
 			}else {
